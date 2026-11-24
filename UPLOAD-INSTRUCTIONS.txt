@@ -1,0 +1,10 @@
+79 HOME ENGINEERING — อัปเดตแกลเลอรีสินค้า 15 ภาพ
+
+1) แตกไฟล์ ZIP ในเครื่อง
+2) ใน GitHub Repository 79homeengineering/79homeengineering-website เลือก Add file > Upload files
+3) เลือกไฟล์ index.html และไฟล์ .webp ทั้ง 15 ไฟล์ (ไม่จำเป็นต้องอัปโหลดไฟล์ .txt)
+4) ต้องให้ไฟล์ทั้งหมดอยู่ root เดียวกับ manual-pink.html และ logo-79.webp
+5) ยืนยัน Commit changes แล้วไปดูหน้าเว็บไซต์
+6) กด Ctrl+Shift+R หากเห็นหน้าเก่า
+
+สำคัญ: ห้ามลบ manual-pink.html, manual-pink.png และ logo-79.webp เดิม เพราะใช้กับเว็บไซต์
