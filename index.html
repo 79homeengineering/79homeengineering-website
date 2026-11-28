@@ -83,34 +83,114 @@ function lineCanSend(liff){
  const ctx=liff.getContext?.();
  return !!(liff.isInClient()&&ctx&&['utou','group','room'].includes(ctx.type));
 }
-let sendingOrder=false;
-buy.addEventListener('click',async()=>{
- if(!cart.length||sendingOrder)return;
- sendingOrder=true;buy.disabled=true;
- feedback.textContent='กำลังตรวจสอบการเชื่อมต่อกับห้องแชท LINE...';
- try{
-  const liff=await initLiff();
-  if(!lineCanSend(liff)){
-   feedback.textContent='ยังส่งรูปไม่ได้ เพราะร้านถูกเปิดจาก Safari หรือหน้าเว็บทั่วไป กรุณาเปิดแชท LINE Official ของร้าน แล้วแตะลิงก์ LIFF «เลือกสินค้า» ในแชทหรือ Rich Menu จากนั้นเลือกสินค้าและกดส่งอีกครั้ง';
-   return;
+
+const ORDER_API = 'https://79home-order-api.putthipong-ben.workers.dev/api/checkout';
+let sendingOrder = false;
+
+buy.addEventListener('click', async () => {
+  if (!cart.length || sendingOrder) return;
+
+  sendingOrder = true;
+  buy.disabled = true;
+  feedback.textContent = 'กำลังส่งคำสั่งซื้อพร้อมรูปสินค้าไปยังร้าน...';
+
+  try {
+    const items = cart.map(p => ({
+      id: p.id,
+      qty: p.qty
+    }));
+
+    const order = {
+      items,
+      name: document.getElementById('orderName').value.trim(),
+      note: document.getElementById('orderNote').value.trim(),
+      method: document.getElementById('paymentMethod').value
+    };
+
+    const response = await fetch(ORDER_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(order),
+      cache: 'no-store'
+    });
+
+    const raw = await response.text();
+    let result;
+
+    try {
+      result = JSON.parse(raw);
+    } catch (e) {
+      throw new Error('เซิร์ฟเวอร์ไม่ได้ส่งผลลัพธ์เป็น JSON');
+    }
+
+    if (!response.ok || result.error) {
+      throw new Error(
+        result.error || result.message ||
+        'HTTP ' + response.status
+      );
+    }
+
+    // กรณี Worker ต้องยืนยันตัวตน LINE ก่อนส่ง
+    const nextUrl =
+      result.redirectUrl ||
+      result.authUrl ||
+      result.loginUrl ||
+      result.redirect ||
+      result.url;
+
+    if (nextUrl) {
+      const url = new URL(nextUrl, location.href);
+      const allowed = [
+        '79home-order-api.putthipong-ben.workers.dev',
+        'access.line.me',
+        'liff.line.me'
+      ];
+
+      if (url.protocol !== 'https:' ||
+          !allowed.includes(url.hostname)) {
+        throw new Error('ลิงก์ยืนยันตัวตนไม่ถูกต้อง');
+      }
+
+      feedback.textContent = 'กำลังเชื่อมต่อ LINE...';
+      window.location.assign(url.href);
+      return;
+    }
+
+    // ยืนยันผลการรับคำสั่งซื้อจาก Worker
+    const accepted =
+      result.ok === true ||
+      result.success === true ||
+      result.sent === true ||
+      Boolean(result.orderId) ||
+      Boolean(result.order_id);
+
+    if (!accepted) {
+      feedback.textContent =
+        'ยังไม่สามารถยืนยันผลการส่งได้ กรุณาตรวจสอบกับร้านก่อนกดซ้ำ';
+      return;
+    }
+
+    feedback.textContent =
+      'ระบบรับคำสั่งซื้อแล้ว กรุณารอร้านยืนยันค่าส่งและวิธีชำระเงิน';
+
+    // ล้างตะกร้าเมื่อ Worker ยืนยันการรับเท่านั้น
+    cart = [];
+    save();
+
+  } catch (err) {
+    console.error('ORDER ERROR:', err);
+
+    feedback.textContent =
+      'ส่งคำสั่งซื้อไม่สำเร็จ: ' +
+      String(err.message || err) +
+      ' — สินค้ายังคงอยู่ในตะกร้า';
+
+  } finally {
+    sendingOrder = false;
+    buy.disabled = !cart.length;
   }
-  const sig=currentOrderSignature();
-  if(sessionStorage.getItem('79home-last-order-sent')===sig){
-   feedback.textContent='รายการนี้ส่งแล้ว หากต้องการส่งคำสั่งซื้อใหม่ ให้ปรับจำนวนสินค้าก่อน';
-   return;
-  }
-  await liff.sendMessages(orderFlexMessages());
-  sessionStorage.setItem('79home-last-order-sent',sig);
-  feedback.textContent='ส่งคำสั่งซื้อพร้อมรูปสินค้าถึงห้องแชทที่เปิด LIFF สำเร็จ';
-  cart=[];save();
-  // Leave the successful result visible. Customers can close the LIFF window to see the messages.
- }catch(err){
-  console.error('LINE Flex checkout error:',err);
-  feedback.textContent='ยังส่งรูปสินค้าไม่สำเร็จ: '+String(err?.message||err).slice(0,140)+' โปรดตรวจว่า LIFF เปิดจากห้องแชทของร้านและเปิดสิทธิ์ chat_message.write แล้ว';
- }finally{
-  sendingOrder=false;
-  buy.disabled=!cart.length;
- }
 });
 // Delete obsolete redirect parameters so old checkout links do not loop.
 try{const u=new URL(location.href);if(u.searchParams.has('checkout')||u.searchParams.has('autosend')){u.searchParams.delete('checkout');u.searchParams.delete('autosend');history.replaceState(null,'',u.pathname+u.search+u.hash)}}catch(e){}
