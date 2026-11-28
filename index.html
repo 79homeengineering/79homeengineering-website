@@ -83,7 +83,6 @@ function lineCanSend(liff){
  const ctx=liff.getContext?.();
  return !!(liff.isInClient()&&ctx&&['utou','group','room'].includes(ctx.type));
 }
-
 const ORDER_API = 'https://79home-order-api.putthipong-ben.workers.dev/api/checkout';
 let sendingOrder = false;
 
