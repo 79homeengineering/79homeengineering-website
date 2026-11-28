@@ -33,7 +33,61 @@ document.querySelectorAll('.add-to-cart').forEach(b=>b.addEventListener('click',
 document.getElementById('chooseProduct')?.addEventListener('click',()=>{const id=document.getElementById('zoom')?.getAttribute('src');const p=[...document.querySelectorAll('.product')].find(x=>x.querySelector('[data-preview]')?.dataset.preview===id);if(p){const v=document.getElementById('viewer');if(v?.open)v.close();addProduct(p.querySelector('.add-to-cart'));}});
 fab.addEventListener('click',openCart);document.getElementById('cartClose').addEventListener('click',closeCart);backdrop.addEventListener('click',closeCart);document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.classList.contains('open'))closeCart()});
 items.addEventListener('click',e=>{const b=e.target.closest('button[data-action]');if(!b)return;const p=cart[Number(b.dataset.index)];if(!p)return;if(b.dataset.action==='inc')p.qty=Math.min(99,p.qty+1);if(b.dataset.action==='dec')p.qty--;if(b.dataset.action==='remove')p.qty=0;cart=cart.filter(x=>x.qty>0);save()});
-buy.addEventListener('click',()=>{if(!cart.length)return;const url='https://line.me/R/oaMessage/%40251mzbvd/?'+encodeURIComponent(orderMessage());feedback.textContent='กำลังเปิดห้องแชท LINE Official กรุณาตรวจสอบแล้วกดส่งข้อความสั่งซื้อใน LINE';window.location.assign(url);});
+// LINE OA receives Flex image cards only when this LIFF page was launched from that LINE chat.
+// In Safari there is no API that silently attaches images to an OA chat; direct text checkout remains available.
+const SHOP_LIFF_ID='2012841318-ggJM2zf4';
+const OA_CHAT_URL='https://line.me/R/oaMessage/%40251mzbvd/?';
+function productImageUrl(p){return new URL(p.id,document.baseURI).href;}
+function orderFlexMessages(){
+ const total=cart.reduce((v,p)=>v+p.qty*p.price,0);
+ const name=document.getElementById('orderName').value.trim();
+ const note=document.getElementById('orderNote').value.trim();
+ const method=document.getElementById('paymentMethod').value;
+ const lines=['สั่งซื้อสินค้า 79 HOME ENGINEERING'];
+ if(name)lines.push('ชื่อผู้ซื้อ: '+name);
+ lines.push(...cart.map((p,i)=>(i+1)+'. '+p.title+' × '+p.qty+' = '+money(p.qty*p.price)));
+ lines.push('รวม '+money(total)+' (ยังไม่รวมค่าจัดส่ง)','วิธีชำระเงิน: '+method);
+ if(note)lines.push('หมายเหตุ: '+note);
+ lines.push('กรุณายืนยันค่าจัดส่งและแจ้งวิธีชำระเงิน');
+ const msgs=[{type:'text',text:lines.join('\n').slice(0,4900)}];
+ for(let offset=0;offset<cart.length;offset+=10){
+  const cards=cart.slice(offset,offset+10).map(p=>({
+   type:'bubble',size:'mega',
+   hero:{type:'image',url:productImageUrl(p),size:'full',aspectRatio:'1:1',aspectMode:'cover',action:{type:'uri',uri:productImageUrl(p)}},
+   body:{type:'box',layout:'vertical',spacing:'sm',contents:[
+    {type:'text',text:p.title,weight:'bold',wrap:true,size:'md',color:'#0c315d'},
+    {type:'text',text:'จำนวน '+p.qty+' ชิ้น • '+money(p.qty*p.price),color:'#087de1',weight:'bold',size:'sm'}
+   ]}
+  }));
+  msgs.push({type:'flex',altText:'รายละเอียดสินค้าและรูปประกอบคำสั่งซื้อ 79 HOME ENGINEERING',contents:{type:'carousel',contents:cards}});
+ }
+ return msgs;
+}
+let sendingOrder=false;
+buy.addEventListener('click',async()=>{
+ if(!cart.length||sendingOrder)return;
+ sendingOrder=true;buy.disabled=true;
+ try{
+  // Do not call liff.login() in Safari. We only send native image cards inside LINE.
+  if(window.liff && window.liff.isInClient()){
+   await window.liff.init({liffId:SHOP_LIFF_ID});
+   const context=window.liff.getContext?.();
+   if(['utou','group','room'].includes(context?.type)){
+    await window.liff.sendMessages(orderFlexMessages());
+    feedback.textContent='ส่งรายการและการ์ดรูปสินค้าไปยังห้องแชท LINE ที่เปิดเว็บไซต์เรียบร้อยแล้ว';
+    return;
+   }
+  }
+  feedback.textContent='กำลังเปิด LINE Official พร้อมข้อความคำสั่งซื้อ (Safari ไม่รองรับการแนบรูปอัตโนมัติ)';
+  location.assign(OA_CHAT_URL+encodeURIComponent(orderMessage()));
+ }catch(e){
+  console.error('LINE order failed',e);
+  feedback.textContent='ไม่สามารถส่งรูปผ่าน LINE ได้ กำลังเปิดข้อความคำสั่งซื้อเข้าร้านแทน';
+  location.assign(OA_CHAT_URL+encodeURIComponent(orderMessage()));
+ }finally{
+  sendingOrder=false;buy.disabled=!cart.length;
+ }
+});
 render();
 })();
-</script></body></html>
+</script><script defer src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script></body></html>
