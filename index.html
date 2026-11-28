@@ -146,6 +146,36 @@ richButton.addEventListener('click',async()=>{
   richFeedback.textContent='ส่งรายการและรูปไม่สำเร็จ: '+(e.message||'กรุณาลองใหม่')+' — กดปุ่ม LINE Official ด้านล่างเพื่อส่งรายการเป็นข้อความแทน';
  }finally{richButton.disabled=!cart.length}
 });
+
+// Second checkout route: allow users who did not open from OA chat to choose the OA as recipient.
+(function(){
+ const shareButton=document.createElement('button');
+ shareButton.type='button';shareButton.id='shareCartWithPicker';
+ shareButton.textContent='แชร์รายการพร้อมรูป (เลือก LINE Official)';
+ shareButton.style.cssText='display:block;width:100%;margin:10px 0;background:#0877ce;color:#fff;border:0;border-radius:14px;padding:15px 12px;font-size:17px;font-weight:700;cursor:pointer';
+ richButton.insertAdjacentElement('afterend',shareButton);
+ const updateShareState=()=>{shareButton.disabled=!cart.length;shareButton.style.opacity=cart.length?'1':'.5'};
+ updateShareState();
+ const target=richButton.parentElement;
+ if(target){const observer=new MutationObserver(updateShareState);observer.observe(target,{subtree:true,childList:true,characterData:true});}
+ shareButton.addEventListener('click',async()=>{
+  if(!cart.length)return;
+  shareButton.disabled=true;
+  try{
+   richFeedback.textContent='กำลังเปิดรายชื่อผู้รับใน LINE...';
+   await initRichLiff();
+   if(!window.liff.isLoggedIn()){
+    richFeedback.textContent='กรุณาอนุญาตการเข้าสู่ระบบ LINE ก่อน';
+    if(!window.liff.isInClient())window.liff.login({redirectUri:location.href});
+    return;
+   }
+   if(!window.liff.isApiAvailable('shareTargetPicker'))throw Error('ไม่รองรับการเลือกผู้รับในหน้าต่างนี้ กรุณาเปิดจากแอป LINE');
+   const result=await window.liff.shareTargetPicker(richOrderMessages());
+   richFeedback.textContent=result?'แชร์รายการพร้อมรูปสำเร็จ กรุณาตรวจสอบห้องแชทที่เลือก':'ยังไม่ได้แชร์รายการ กรุณาเลือก LINE Official ของร้านแล้วกดยืนยัน';
+  }catch(e){console.error('Share cart:',e);richFeedback.textContent='ไม่สามารถแชร์รายการพร้อมรูป: '+(e.message||'กรุณาลองใหม่')+' — สามารถใช้ปุ่ม LINE Official ส่งข้อความแทน';}
+  finally{updateShareState();}
+ });
+})();
 // Initialize LIFF before reading the checkout query or changing browser history.
 // This is especially important on iOS during LIFF's two-stage redirect.
 if(orderQuery()){
