@@ -26,9 +26,9 @@ dialog .viewer-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}d
 <label for="orderNote">หมายเหตุ / สีสั่งทำ (ไม่บังคับ)</label><textarea id="orderNote" rows="2" maxlength="400" placeholder="รายละเอียดเพิ่มเติม"></textarea>
 <button id="copyOrder" type="button" hidden aria-hidden="true" tabindex="-1">คัดลอกข้อความรายการสินค้า</button>
 <button id="shareFlex" type="button" style="background:#0877ce;color:#fff">② ส่งรายการพร้อมรูปผ่าน LINE</button>
-<button id="sendLine" type="button">① ส่งรายการไป LINE Official</button>
+<button id="sendLine" type="button">① ส่งข้อความไป LINE Official</button>
 <p id="cartFeedback" role="status" aria-live="polite"></p>
-<small>ปุ่ม ① เปิดแชทร้านพร้อมข้อความรายการโดยไม่ล็อกอินผ่านเว็บไซต์ (ลูกค้าตรวจสอบและกดส่งเอง) ปุ่ม ② เปิดในแอป LINE เพื่อส่งการ์ดรูปสินค้า อาจต้องอนุญาต LINE ครั้งแรกและเลือกแชทผู้รับ ไม่มีการชำระเงินอัตโนมัติ</small></div></aside>
+<small>① ส่งข้อความพร้อมลิงก์รูปเข้าห้องแชทร้าน (ลูกค้ากดส่งเอง) ② ส่งข้อความและการ์ดรูปผ่าน LINE LIFF เมื่อเปิดจากแอป LINE สามารถเลือกแชทร้านได้ ไม่มีการหักเงินอัตโนมัติ</small></div></aside>
 <dialog id="viewer"><img id="zoom" alt="ภาพขยาย"><div class="end"><strong id="zoomLabel"></strong><div class="viewer-actions"><button type="button" id="chooseProduct">+ ใส่ตะกร้า</button><button id="close" type="button">ปิดภาพ</button></div></div></dialog><script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script><script>
 let color='all',pose='all';function apply(){document.querySelectorAll('.product').forEach(el=>el.classList.toggle('hidden',(color!=='all'&&el.dataset.color!==color)||(pose!=='all'&&el.dataset.group!==pose)));document.querySelectorAll('.productgroup').forEach(section=>section.classList.toggle('hidden',!section.querySelector('.product:not(.hidden)')))}document.querySelectorAll('.pill').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.filter){color=b.dataset.filter;document.querySelectorAll('[data-filter]').forEach(x=>{x.classList.toggle('active',x===b);x.setAttribute('aria-pressed',String(x===b))})}if(b.dataset.pose){pose=b.dataset.pose;document.querySelectorAll('[data-pose]').forEach(x=>{x.classList.toggle('active',x===b);x.setAttribute('aria-pressed',String(x===b))})}apply()}));const viewer=document.querySelector('#viewer');document.querySelectorAll('[data-preview]').forEach(el=>el.addEventListener('click',()=>{document.querySelector('#zoom').src=el.dataset.preview;document.querySelector('#zoomLabel').textContent=el.dataset.title;if(viewer.showModal)viewer.showModal();else window.open(el.dataset.preview,'_blank')}));document.querySelector('#close').addEventListener('click',()=>viewer.close());viewer.addEventListener('click',e=>{if(e.target===viewer)viewer.close()});
 </script><script>
@@ -124,32 +124,30 @@ richButton.addEventListener('click',async()=>{
  if(!cart.length)return;
  richButton.disabled=true;
  try{
-  if(!(window.liff && window.liff.isInClient?.()) && !orderQuery()){
-   // Open LIFF with the basket instead of forcing liff.login in Safari.
-   const payload=encodeURIComponent(JSON.stringify(richValue()));
-   if(payload.length>7500)throw Error('ข้อมูลตะกร้ายาวเกินไป');
-   richFeedback.textContent='กำลังเปิดแอป LINE เพื่อตรวจสอบและแชร์รูป หาก LINE ขอเข้าสู่ระบบ กรุณาใช้ปุ่ม ① ส่งรายการเป็นข้อความแทน';
-   window.location.href=LIFF_ENTRY+'?checkout='+payload;
-   return;
+  const q=orderQuery();
+  const inClient=Boolean(window.liff && window.liff.isInClient && window.liff.isInClient());
+  if(!inClient&&!q){
+   const raw=JSON.stringify(richValue());
+   if(raw.length>6000)throw Error('ข้อมูลตะกร้ายาวเกินไป กรุณาลดหมายเหตุหรือจำนวนรุ่น');
+   const target=LIFF_ENTRY+'?checkout='+encodeURIComponent(raw);
+   richFeedback.textContent='กำลังเปิด LINE LIFF หากเปิดใน Safari แล้วพบหน้าล็อกอิน ให้กลับมาที่หน้าเว็บและใช้ปุ่ม ① หรือส่งลิงก์นี้เข้าแชท LINE แล้วเปิดจากแอป LINE';
+   window.location.assign(target);return;
   }
-  richFeedback.textContent='กำลังเตรียมรูปสินค้าใน LINE...';
+  richFeedback.textContent='กำลังเตรียมการ์ดรูปสินค้า...';
   await initRichLiff();
   if(!window.liff.isLoggedIn()){
-   richFeedback.textContent='LINE ต้องการการอนุญาตบัญชี กรุณาเปิดผ่านแอป LINE หรือใช้ปุ่ม ① เพื่อส่งรายการเข้าร้านโดยไม่ผ่าน LINE Login';
-   return;
+   richFeedback.textContent='เปิดร้านจากแอป LINE เพื่อแชร์รูปสินค้าได้สะดวก โดยไม่จำเป็นต้องกรอก LINE Login ใน Safari';return;
   }
-  const chatType=window.liff.getContext?.()?.type;
-  if(window.liff.isInClient() && ['utou','group','room'].includes(chatType) && window.liff.isApiAvailable('sendMessages')){
-   await window.liff.sendMessages(richOrderMessages());
-   richFeedback.textContent='ส่งการ์ดสินค้าเข้าห้องแชทที่เปิดร้านเรียบร้อยแล้ว';
-   return;
-  }
-  if(!window.liff.isApiAvailable('shareTargetPicker'))throw Error('ไม่รองรับการเลือกผู้รับในหน้าต่างนี้');
-  const result=await window.liff.shareTargetPicker(richOrderMessages());
-  richFeedback.textContent=result?'ส่งรายการพร้อมรูปแล้ว กรุณาตรวจสอบผู้รับ':'ยังไม่ส่ง กรุณาเลือก 79 HOME ENGINEERING แล้วกดยืนยัน';
+  const messages=richOrderMessages();
+  // Recipient is chosen explicitly; never send an order to an unrelated originating chat.
+  if(typeof window.liff.shareTargetPicker!=='function')throw Error('LINE รุ่นนี้ไม่มีฟังก์ชันเลือกผู้รับ กรุณาอัปเดต LINE');
+  if(window.liff.isApiAvailable && !window.liff.isApiAvailable('shareTargetPicker'))throw Error('ต้องเปิดหน้า LIFF จากแอป LINE เพื่อใช้หน้าส่งรูปสินค้า');
+  richFeedback.textContent='กรุณาเลือกแชท 79 HOME ENGINEERING และกดแชร์';
+  const result=await window.liff.shareTargetPicker(messages);
+  richFeedback.textContent=result?'ส่งข้อความพร้อมรูปสินค้าแล้ว กรุณาตรวจสอบว่าปลายทางเป็น 79 HOME ENGINEERING':'ยังไม่ได้ส่ง กรุณาเลือกผู้รับแล้วกดยืนยัน';
  }catch(e){
-  console.error('LINE rich checkout:',e);
-  richFeedback.textContent='ส่งรูปไม่สำเร็จ: '+(e.message||'ลองใหม่อีกครั้ง')+' ใช้ปุ่ม ① เพื่อส่งข้อความเข้าร้านแทน';
+  console.error('LINE order:',e);
+  richFeedback.textContent='ส่งรูปไม่สำเร็จ: '+(e.message||'โปรดลองใหม่')+' — ใช้ปุ่ม ① ส่งรายการข้อความเข้าร้านได้ทันที';
  }finally{richButton.disabled=!cart.length}
 });
 // Initialize LIFF before reading the checkout query or changing browser history.
