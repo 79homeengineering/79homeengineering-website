@@ -24,11 +24,11 @@ dialog .viewer-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}d
 <small>ราคายังไม่รวมค่าจัดส่ง กรุณาให้ร้านยืนยันยอดก่อนชำระเงิน</small>
 <label for="orderName">ชื่อผู้สั่งซื้อ (ไม่บังคับ)</label><input id="orderName" maxlength="80" placeholder="ชื่อลูกค้า">
 <label for="orderNote">หมายเหตุ / สีสั่งทำ (ไม่บังคับ)</label><textarea id="orderNote" rows="2" maxlength="400" placeholder="รายละเอียดเพิ่มเติม"></textarea>
-<button id="copyOrder" type="button">คัดลอกข้อความรายการสินค้า</button>
-<button id="shareFlex" type="button" style="background:#06c755;color:#fff">ส่งรูปสินค้าและรายการผ่าน LINE (LIFF)</button>
-<button id="sendLine" type="button">เปิด LINE Official เพื่อส่งรายการ</button>
+<button id="copyOrder" type="button" hidden aria-hidden="true" tabindex="-1">คัดลอกข้อความรายการสินค้า</button>
+<button id="shareFlex" type="button" style="background:#0877ce;color:#fff">② ส่งรายการพร้อมรูปผ่าน LINE</button>
+<button id="sendLine" type="button">① ส่งรายการไป LINE Official</button>
 <p id="cartFeedback" role="status" aria-live="polite"></p>
-<small>หากเปิดร้านจากแชท LINE Official สามารถส่งรายการพร้อมรูปกลับเข้าห้องแชทได้โดยตรง หากเปิดจาก Safari ใช้ปุ่ม LINE Official เพื่อส่งข้อความรายการ ไม่มีการตัดเงินอัตโนมัติ</small></div></aside>
+<small>ปุ่ม ① เปิดแชทร้านพร้อมข้อความรายการโดยไม่ล็อกอินผ่านเว็บไซต์ (ลูกค้าตรวจสอบและกดส่งเอง) ปุ่ม ② เปิดในแอป LINE เพื่อส่งการ์ดรูปสินค้า อาจต้องอนุญาต LINE ครั้งแรกและเลือกแชทผู้รับ ไม่มีการชำระเงินอัตโนมัติ</small></div></aside>
 <dialog id="viewer"><img id="zoom" alt="ภาพขยาย"><div class="end"><strong id="zoomLabel"></strong><div class="viewer-actions"><button type="button" id="chooseProduct">+ ใส่ตะกร้า</button><button id="close" type="button">ปิดภาพ</button></div></div></dialog><script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script><script>
 let color='all',pose='all';function apply(){document.querySelectorAll('.product').forEach(el=>el.classList.toggle('hidden',(color!=='all'&&el.dataset.color!==color)||(pose!=='all'&&el.dataset.group!==pose)));document.querySelectorAll('.productgroup').forEach(section=>section.classList.toggle('hidden',!section.querySelector('.product:not(.hidden)')))}document.querySelectorAll('.pill').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.filter){color=b.dataset.filter;document.querySelectorAll('[data-filter]').forEach(x=>{x.classList.toggle('active',x===b);x.setAttribute('aria-pressed',String(x===b))})}if(b.dataset.pose){pose=b.dataset.pose;document.querySelectorAll('[data-pose]').forEach(x=>{x.classList.toggle('active',x===b);x.setAttribute('aria-pressed',String(x===b))})}apply()}));const viewer=document.querySelector('#viewer');document.querySelectorAll('[data-preview]').forEach(el=>el.addEventListener('click',()=>{document.querySelector('#zoom').src=el.dataset.preview;document.querySelector('#zoomLabel').textContent=el.dataset.title;if(viewer.showModal)viewer.showModal();else window.open(el.dataset.preview,'_blank')}));document.querySelector('#close').addEventListener('click',()=>viewer.close());viewer.addEventListener('click',e=>{if(e.target===viewer)viewer.close()});
 </script><script>
@@ -117,65 +117,41 @@ async function initRichLiff(){
  if(!liffSetup)liffSetup=window.liff.init({liffId:LIFF_ID}).catch(e=>{liffSetup=null;throw e});
  return liffSetup
 }
-richButton.textContent='ส่งคำสั่งซื้อพร้อมรูปไปยังแชท LINE';
+// Two-button checkout for 79 HOME ENGINEERING.
+richButton.textContent='② ส่งรายการพร้อมรูปผ่าน LINE';
+richButton.style.background='#0877ce';
 richButton.addEventListener('click',async()=>{
  if(!cart.length)return;
  richButton.disabled=true;
  try{
-  richFeedback.textContent='กำลังตรวจสอบห้องแชท LINE...';
+  if(!(window.liff && window.liff.isInClient?.()) && !orderQuery()){
+   // Open LIFF with the basket instead of forcing liff.login in Safari.
+   const payload=encodeURIComponent(JSON.stringify(richValue()));
+   if(payload.length>7500)throw Error('ข้อมูลตะกร้ายาวเกินไป');
+   richFeedback.textContent='กำลังเปิดแอป LINE เพื่อตรวจสอบและแชร์รูป หาก LINE ขอเข้าสู่ระบบ กรุณาใช้ปุ่ม ① ส่งรายการเป็นข้อความแทน';
+   window.location.href=LIFF_ENTRY+'?checkout='+payload;
+   return;
+  }
+  richFeedback.textContent='กำลังเตรียมรูปสินค้าใน LINE...';
   await initRichLiff();
-  const chatType=window.liff.getContext?.()?.type;
-  // sendMessages delivers only to the chat that opened this LIFF, not an arbitrary recipient.
-  if(!window.liff.isInClient() || !['utou','group','room'].includes(chatType)){
-   richFeedback.textContent='หากต้องการส่งรูปตรงเข้าร้าน กรุณาเปิดลิงก์ LIFF จากห้องแชท LINE Official ของ 79 HOME ENGINEERING แล้วกดส่งอีกครั้ง หากเปิดจาก Safari ใช้ปุ่ม LINE Official เพื่อส่งข้อความรายการแทน';
-   return;
-  }
   if(!window.liff.isLoggedIn()){
-   richFeedback.textContent='กรุณาอนุญาต LINE Login แล้วเปิดร้านจากห้องแชทอีกครั้ง';
+   richFeedback.textContent='LINE ต้องการการอนุญาตบัญชี กรุณาเปิดผ่านแอป LINE หรือใช้ปุ่ม ① เพื่อส่งรายการเข้าร้านโดยไม่ผ่าน LINE Login';
    return;
   }
-  if(!window.liff.isApiAvailable('sendMessages'))throw Error('ไม่สามารถส่งข้อความในแชทนี้ได้ กรุณาเปิดลิงก์ LIFF จากห้องแชท LINE Official ของร้าน');
-  if(!window.confirm('ส่งรายการและรูปสินค้าเข้าห้องแชท LINE ที่เปิดร้านนี้ใช่หรือไม่?\nโปรดตรวจสอบว่าห้องแชทเป็น 79 HOME ENGINEERING')){
-   richFeedback.textContent='ยกเลิกการส่งรายการ'; return;
+  const chatType=window.liff.getContext?.()?.type;
+  if(window.liff.isInClient() && ['utou','group','room'].includes(chatType) && window.liff.isApiAvailable('sendMessages')){
+   await window.liff.sendMessages(richOrderMessages());
+   richFeedback.textContent='ส่งการ์ดสินค้าเข้าห้องแชทที่เปิดร้านเรียบร้อยแล้ว';
+   return;
   }
-  richFeedback.textContent='กำลังส่งรายการและรูปสินค้า...';
-  await window.liff.sendMessages(richOrderMessages());
-  richFeedback.textContent='ส่งรายการและรูปสินค้าเข้าแชทสำเร็จแล้ว กรุณาตรวจสอบใน LINE';
+  if(!window.liff.isApiAvailable('shareTargetPicker'))throw Error('ไม่รองรับการเลือกผู้รับในหน้าต่างนี้');
+  const result=await window.liff.shareTargetPicker(richOrderMessages());
+  richFeedback.textContent=result?'ส่งรายการพร้อมรูปแล้ว กรุณาตรวจสอบผู้รับ':'ยังไม่ส่ง กรุณาเลือก 79 HOME ENGINEERING แล้วกดยืนยัน';
  }catch(e){
-  console.error('LIFF direct checkout:',e);
-  richFeedback.textContent='ส่งรายการและรูปไม่สำเร็จ: '+(e.message||'กรุณาลองใหม่')+' — กดปุ่ม LINE Official ด้านล่างเพื่อส่งรายการเป็นข้อความแทน';
+  console.error('LINE rich checkout:',e);
+  richFeedback.textContent='ส่งรูปไม่สำเร็จ: '+(e.message||'ลองใหม่อีกครั้ง')+' ใช้ปุ่ม ① เพื่อส่งข้อความเข้าร้านแทน';
  }finally{richButton.disabled=!cart.length}
 });
-
-// Second checkout route: allow users who did not open from OA chat to choose the OA as recipient.
-(function(){
- const shareButton=document.createElement('button');
- shareButton.type='button';shareButton.id='shareCartWithPicker';
- shareButton.textContent='แชร์รายการพร้อมรูป (เลือก LINE Official)';
- shareButton.style.cssText='display:block;width:100%;margin:10px 0;background:#0877ce;color:#fff;border:0;border-radius:14px;padding:15px 12px;font-size:17px;font-weight:700;cursor:pointer';
- richButton.insertAdjacentElement('afterend',shareButton);
- const updateShareState=()=>{shareButton.disabled=!cart.length;shareButton.style.opacity=cart.length?'1':'.5'};
- updateShareState();
- const target=richButton.parentElement;
- if(target){const observer=new MutationObserver(updateShareState);observer.observe(target,{subtree:true,childList:true,characterData:true});}
- shareButton.addEventListener('click',async()=>{
-  if(!cart.length)return;
-  shareButton.disabled=true;
-  try{
-   richFeedback.textContent='กำลังเปิดรายชื่อผู้รับใน LINE...';
-   await initRichLiff();
-   if(!window.liff.isLoggedIn()){
-    richFeedback.textContent='กรุณาอนุญาตการเข้าสู่ระบบ LINE ก่อน';
-    if(!window.liff.isInClient())window.liff.login({redirectUri:location.href});
-    return;
-   }
-   if(!window.liff.isApiAvailable('shareTargetPicker'))throw Error('ไม่รองรับการเลือกผู้รับในหน้าต่างนี้ กรุณาเปิดจากแอป LINE');
-   const result=await window.liff.shareTargetPicker(richOrderMessages());
-   richFeedback.textContent=result?'แชร์รายการพร้อมรูปสำเร็จ กรุณาตรวจสอบห้องแชทที่เลือก':'ยังไม่ได้แชร์รายการ กรุณาเลือก LINE Official ของร้านแล้วกดยืนยัน';
-  }catch(e){console.error('Share cart:',e);richFeedback.textContent='ไม่สามารถแชร์รายการพร้อมรูป: '+(e.message||'กรุณาลองใหม่')+' — สามารถใช้ปุ่ม LINE Official ส่งข้อความแทน';}
-  finally{updateShareState();}
- });
-})();
 // Initialize LIFF before reading the checkout query or changing browser history.
 // This is especially important on iOS during LIFF's two-stage redirect.
 if(orderQuery()){
