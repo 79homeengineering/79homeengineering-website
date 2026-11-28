@@ -89,7 +89,8 @@ function importRichCart(){
   cart=list;save();
   if(typeof data.name==='string')document.getElementById('orderName').value=data.name.slice(0,100);
   if(typeof data.note==='string')document.getElementById('orderNote').value=data.note.slice(0,400);
-  history.replaceState(null,'',location.pathname+'#products');
+  // Keep LIFF URL and query intact; the SDK owns the primary/secondary redirect.
+  // Do not replaceState until LIFF has completed initialization.
   setTimeout(()=>{open();richFeedback.textContent='สินค้าพร้อมแล้ว กดปุ่มสีเขียวเพื่อเลือกแชท LINE และส่งการ์ดรูปสินค้า'},250);
  }catch(e){richFeedback.textContent='โหลดตะกร้าจาก LINE ไม่สำเร็จ กรุณาเลือกสินค้าใหม่'}
 }
@@ -135,7 +136,14 @@ richButton.addEventListener('click',async()=>{
  }catch(e){console.error('LIFF checkout:',e);richFeedback.textContent='ส่งรูปไม่สำเร็จ: '+(e.message||'กรุณาลองใหม่')+' | ใช้ปุ่ม LINE ข้อความสำรองได้'}
  finally{richButton.disabled=!cart.length}
 });
-importRichCart();
+// Initialize LIFF before reading the checkout query or changing browser history.
+// This is especially important on iOS during LIFF's two-stage redirect.
+if(orderQuery()){
+  initRichLiff().then(()=>importRichCart()).catch(e=>{
+    console.error('LIFF init error:',e);
+    richFeedback.textContent='ไม่สามารถเริ่ม LINE LIFF: '+(e.message||'กรุณาลองเปิดลิงก์ LIFF โดยตรง');
+  });
+}
 
 render();
 })();
