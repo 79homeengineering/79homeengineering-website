@@ -25,6 +25,7 @@ dialog .viewer-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}d
 <label for="orderName">ชื่อผู้สั่งซื้อ (ไม่บังคับ)</label><input id="orderName" maxlength="80" placeholder="ชื่อลูกค้า">
 <label for="orderNote">หมายเหตุ / สีสั่งทำ (ไม่บังคับ)</label><textarea id="orderNote" rows="2" maxlength="400" placeholder="รายละเอียดเพิ่มเติม"></textarea>
 <button id="copyOrder" type="button">คัดลอกข้อความรายการสินค้า</button>
+<button id="shareFlex" type="button" style="background:#06c755;color:#fff">ส่งรูปสินค้าและรายการผ่าน LINE (LIFF)</button>
 <button id="sendLine" type="button">เปิด LINE Official เพื่อส่งรายการ</button>
 <p id="cartFeedback" role="status" aria-live="polite"></p>
 <small>ระบบจะคัดลอกรายการและเปิด LINE ให้ลูกค้าวางข้อความและกดส่งด้วยตนเอง ยังไม่มีการตัดเงินอัตโนมัติ</small></div></aside>
@@ -43,7 +44,7 @@ function product(el){const p=el.closest('.product');if(!p)return null;const phot
 function add(x){if(!x)return;const old=cart.find(i=>i.id===x.id);if(old)old.qty=Math.min(99,old.qty+1);else cart.push(x);save();open()}
 function open(){panel.classList.add('open');panel.setAttribute('aria-hidden','false');back.hidden=false;fab.setAttribute('aria-expanded','true');document.body.classList.add('cart-open');document.querySelector('#cartClose').focus()}
 function close(){panel.classList.remove('open');panel.setAttribute('aria-hidden','true');back.hidden=true;fab.setAttribute('aria-expanded','false');document.body.classList.remove('cart-open');fab.focus()}
-function render(){items.replaceChildren();let count=0,total=0;cart.forEach((p,i)=>{count+=p.qty;total+=p.qty*p.price;const row=document.createElement('div');row.className='cart-item';const img=document.createElement('img');img.src=p.id;img.alt='';img.loading='lazy';const detail=document.createElement('div');detail.className='cart-detail';const name=document.createElement('strong');name.textContent=p.title;const unit=document.createElement('small');unit.textContent=money(p.price)+' / ชิ้น';const controls=document.createElement('div');controls.className='cart-controls';[['−','dec'],[String(p.qty),'qty'],['+','inc'],['ลบ','remove']].forEach(([txt,action])=>{const b=document.createElement(action==='qty'?'b':'button');b.textContent=txt;if(action!=='qty'){b.type='button';b.dataset.action=action;b.dataset.index=String(i);if(action==='remove')b.className='remove'}controls.append(b)});detail.append(name,unit,controls);row.append(img,detail);items.append(row)});if(!cart.length){const empty=document.createElement('p');empty.className='cart-empty';empty.textContent='ยังไม่มีสินค้าในตะกร้า เลือกสินค้าได้จากหน้าร้าน';items.append(empty)}document.querySelector('#cartCount').textContent=String(count);document.querySelector('#cartTotal').textContent=money(total);document.querySelector('#copyOrder').disabled=!cart.length;document.querySelector('#sendLine').disabled=!cart.length}
+function render(){items.replaceChildren();let count=0,total=0;cart.forEach((p,i)=>{count+=p.qty;total+=p.qty*p.price;const row=document.createElement('div');row.className='cart-item';const img=document.createElement('img');img.src=p.id;img.alt='';img.loading='lazy';const detail=document.createElement('div');detail.className='cart-detail';const name=document.createElement('strong');name.textContent=p.title;const unit=document.createElement('small');unit.textContent=money(p.price)+' / ชิ้น';const controls=document.createElement('div');controls.className='cart-controls';[['−','dec'],[String(p.qty),'qty'],['+','inc'],['ลบ','remove']].forEach(([txt,action])=>{const b=document.createElement(action==='qty'?'b':'button');b.textContent=txt;if(action!=='qty'){b.type='button';b.dataset.action=action;b.dataset.index=String(i);if(action==='remove')b.className='remove'}controls.append(b)});detail.append(name,unit,controls);row.append(img,detail);items.append(row)});if(!cart.length){const empty=document.createElement('p');empty.className='cart-empty';empty.textContent='ยังไม่มีสินค้าในตะกร้า เลือกสินค้าได้จากหน้าร้าน';items.append(empty)}document.querySelector('#cartCount').textContent=String(count);document.querySelector('#cartTotal').textContent=money(total);document.querySelector('#copyOrder').disabled=!cart.length;document.querySelector('#sendLine').disabled=!cart.length;document.querySelector('#shareFlex').disabled=!cart.length}
 function summary(){const name=document.querySelector('#orderName').value.trim(),note=document.querySelector('#orderNote').value.trim();const out=['สวัสดีครับ/ค่ะ สนใจสั่งซื้อสินค้าจาก 79 HOME ENGINEERING'];if(name)out.push('ชื่อลูกค้า: '+name);out.push('','รายการสินค้า:');let total=0;cart.forEach((p,i)=>{const sum=p.price*p.qty;total+=sum;out.push((i+1)+'. '+p.title+' จำนวน '+p.qty+' ชิ้น = '+money(sum));out.push('รูปสินค้า: '+new URL(p.id,location.href).href)});out.push('','รวมค่าสินค้า '+money(total),'ยังไม่รวมค่าจัดส่ง');if(note)out.push('หมายเหตุ: '+note);out.push('','รบกวนร้านยืนยันยอดรวมค่าส่งและวิธีชำระเงินด้วยครับ/ค่ะ');return out.join('\n')}
 async function copyText(value){try{await navigator.clipboard.writeText(value);return true}catch(e){const el=document.createElement('textarea');el.value=value;el.style.position='fixed';el.style.opacity='0';document.body.append(el);el.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}el.remove();return ok}}
 // Event delegation works for all 15 existing products
@@ -54,6 +55,88 @@ fab.addEventListener('click',open);document.querySelector('#cartClose').addEvent
 items.addEventListener('click',e=>{const b=e.target.closest('button[data-action]');if(!b)return;const i=Number(b.dataset.index),p=cart[i];if(!p)return;if(b.dataset.action==='inc')p.qty=Math.min(99,p.qty+1);if(b.dataset.action==='dec')p.qty--;if(b.dataset.action==='remove')p.qty=0;if(p.qty<1)cart.splice(i,1);save()});
 document.querySelector('#copyOrder').addEventListener('click',async()=>{const ok=await copyText(summary());document.querySelector('#cartFeedback').textContent=ok?'คัดลอกแล้ว สามารถวางรายการในแชต LINE ได้':'ไม่สามารถคัดลอกอัตโนมัติได้ กรุณาเปิดผ่าน HTTPS'});
 document.querySelector('#sendLine').addEventListener('click',()=>{if(!cart.length)return;const msg=summary();const url='https://line.me/R/oaMessage/%40251mzbvd/?'+encodeURIComponent(msg);window.location.href=url;document.querySelector('#cartFeedback').textContent='เปิด LINE Official พร้อมข้อความและลิงก์รูปสินค้าแล้ว กรุณาตรวจสอบและกดส่งในแชต';});
+
+/* 79 HOME ENGINEERING - LINE LIFF rich cart checkout */
+const LIFF_ID='2012841318-ggJMzf4';
+const LIFF_ENTRY='https://liff.line.me/'+LIFF_ID;
+const BASE_SITE='https://79homeengineering.github.io/79homeengineering-website/';
+const richButton=document.getElementById('shareFlex');
+const richFeedback=document.getElementById('cartFeedback');
+let liffSetup;
+const validIds=new Set([...document.querySelectorAll('.product [data-preview]')].map(x=>x.dataset.preview));
+function richValue(){return {items:cart.filter(x=>validIds.has(x.id)).map(x=>({id:x.id,qty:x.qty})),name:document.querySelector('#orderName').value.trim().slice(0,100),note:document.querySelector('#orderNote').value.trim().slice(0,400)}}
+function orderQuery(){
+ let p=new URLSearchParams(location.search),v=p.get('checkout');
+ if(v)return v;
+ const state=p.get('liff.state');
+ if(state){try{const sp=new URLSearchParams(decodeURIComponent(state).replace(/^\/?\?/,''));return sp.get('checkout')}catch(e){}}
+ return '';
+}
+function importRichCart(){
+ const raw=orderQuery();if(!raw)return;
+ try{
+  if(raw.length>10000)throw Error('รายการยาวเกินไป');
+  const data=JSON.parse(raw);if(!data||!Array.isArray(data.items))throw Error('รูปแบบรายการไม่ถูกต้อง');
+  const list=[];const products=[...document.querySelectorAll('.product')];
+  for(const x of data.items.slice(0,30)){
+   if(!x||!validIds.has(x.id))continue;
+   const el=products.find(p=>p.querySelector('[data-preview]')?.dataset.preview===x.id);
+   if(!el)continue;
+   const item=product(el);item.qty=Math.min(99,Math.max(1,Math.floor(Number(x.qty)||1)));
+   const old=list.find(y=>y.id===item.id);if(old)old.qty=Math.min(99,old.qty+item.qty);else list.push(item)
+  }
+  if(!list.length)throw Error('ไม่พบรายการสินค้า');
+  cart=list;save();
+  if(typeof data.name==='string')document.getElementById('orderName').value=data.name.slice(0,100);
+  if(typeof data.note==='string')document.getElementById('orderNote').value=data.note.slice(0,400);
+  history.replaceState(null,'',location.pathname+'#products');
+  setTimeout(()=>{open();richFeedback.textContent='สินค้าพร้อมแล้ว กดปุ่มสีเขียวเพื่อเลือกแชท LINE และส่งการ์ดรูปสินค้า'},250);
+ }catch(e){richFeedback.textContent='โหลดตะกร้าจาก LINE ไม่สำเร็จ กรุณาเลือกสินค้าใหม่'}
+}
+function imageJpeg(id){return 'https://images.weserv.nl/?url='+encodeURIComponent(new URL(id,BASE_SITE).href)+'&output=jpg&w=720&q=82'}
+function richBubble(p){
+ return {type:'bubble',size:'mega',hero:{type:'image',url:imageJpeg(p.id),size:'full',aspectRatio:'1:1',aspectMode:'cover',action:{type:'uri',uri:new URL(p.id,BASE_SITE).href}},body:{type:'box',layout:'vertical',spacing:'sm',contents:[
+  {type:'text',text:p.title.slice(0,100),weight:'bold',size:'md',wrap:true,color:'#092c55'},
+  {type:'text',text:'จำนวน '+p.qty+' ชิ้น | '+money(p.price*p.qty),size:'sm',color:'#087de1',weight:'bold'},
+  {type:'button',style:'link',height:'sm',action:{type:'uri',label:'ดูรูปสินค้า',uri:new URL(p.id,BASE_SITE).href}}
+ ]}}
+}
+function richOrderMessages(){
+ let sum=0;const name=document.getElementById('orderName').value.trim();const note=document.getElementById('orderNote').value.trim();
+ const lines=['รายการสินค้าจาก 79 HOME ENGINEERING'];if(name)lines.push('ชื่อลูกค้า: '+name);
+ cart.forEach((p,i)=>{sum+=p.price*p.qty;lines.push((i+1)+'. '+p.title+' x '+p.qty+' = '+money(p.price*p.qty))});
+ lines.push('รวมค่าสินค้า '+money(sum),'ยังไม่รวมค่าจัดส่ง');if(note)lines.push('หมายเหตุ: '+note);
+ lines.push('กรุณาร้านยืนยันค่าจัดส่งและช่องทางชำระเงิน');
+ const messages=[{type:'text',text:lines.join('\n').slice(0,4900)}];
+ for(let i=0;i<cart.length;i+=12){const part=cart.slice(i,i+12);messages.push({type:'flex',altText:'รูปสินค้า 79 HOME ENGINEERING',contents:part.length===1?richBubble(part[0]):{type:'carousel',contents:part.map(richBubble)}})}
+ if(messages.length>5)throw Error('รายการมากเกินกว่าข้อจำกัด LINE ในการส่งครั้งเดียว');return messages
+}
+async function initRichLiff(){
+ if(!window.liff)throw Error('โหลด LINE LIFF SDK ไม่สำเร็จ');
+ if(!liffSetup)liffSetup=window.liff.init({liffId:LIFF_ID}).catch(e=>{liffSetup=null;throw e});
+ return liffSetup
+}
+richButton.addEventListener('click',async()=>{
+ if(!cart.length)return;richButton.disabled=true;
+ try{
+  richFeedback.textContent='กำลังเตรียมรายการและภาพสินค้า...';
+  // The LIFF URL opens the same static website inside LINE, carrying basket in query.
+  if(!window.liff?.isInClient?.() && !orderQuery()){
+   const data=encodeURIComponent(JSON.stringify(richValue()));
+   if(data.length>7500)throw Error('ตะกร้าหรือหมายเหตุยาวเกินไป');
+   richFeedback.textContent='กำลังเปิดร้านใน LINE กรุณากดปุ่มส่งรูปอีกครั้งเมื่อเข้าหน้าเว็บใน LINE';
+   location.href=LIFF_ENTRY+'?checkout='+data;return
+  }
+  await initRichLiff();
+  if(!window.liff.isLoggedIn()){window.liff.login({redirectUri:location.href});return}
+  if(!window.liff.isApiAvailable('shareTargetPicker'))throw Error('เบราว์เซอร์นี้ยังไม่รองรับ LIFF shareTargetPicker');
+  const result=await window.liff.shareTargetPicker(richOrderMessages());
+  richFeedback.textContent=result?'ส่งรายการสำเร็จแล้ว โปรดตรวจสอบห้องแชทที่เลือก':'ยังไม่ได้ส่งรายการ กรุณาเลือกห้องแชทแล้วกดยืนยัน';
+ }catch(e){console.error('LIFF checkout:',e);richFeedback.textContent='ส่งรูปไม่สำเร็จ: '+(e.message||'กรุณาลองใหม่')+' | ใช้ปุ่ม LINE ข้อความสำรองได้'}
+ finally{richButton.disabled=!cart.length}
+});
+importRichCart();
+
 render();
 })();
-</script></body></html>
+</script><script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script></body></html>
