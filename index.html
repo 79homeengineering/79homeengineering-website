@@ -57,7 +57,7 @@ document.querySelector('#copyOrder').addEventListener('click',async()=>{const ok
 document.querySelector('#sendLine').addEventListener('click',()=>{if(!cart.length)return;const msg=summary();const url='https://line.me/R/oaMessage/%40251mzbvd/?'+encodeURIComponent(msg);window.location.href=url;document.querySelector('#cartFeedback').textContent='เปิด LINE Official พร้อมข้อความและลิงก์รูปสินค้าแล้ว กรุณาตรวจสอบและกดส่งในแชต';});
 
 /* 79 HOME ENGINEERING - LINE LIFF rich cart checkout */
-const LIFF_ID='2012841318-ggJMzf4';
+const LIFF_ID='2012841318-ggJM2zf4';
 const LIFF_ENTRY='https://liff.line.me/'+LIFF_ID;
 const BASE_SITE='https://79homeengineering.github.io/79homeengineering-website/';
 const richButton=document.getElementById('shareFlex');
