@@ -29,7 +29,7 @@ dialog .viewer-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}d
 <button id="sendLine" type="button">เปิด LINE Official เพื่อส่งรายการ</button>
 <p id="cartFeedback" role="status" aria-live="polite"></p>
 <small>ระบบจะคัดลอกรายการและเปิด LINE ให้ลูกค้าวางข้อความและกดส่งด้วยตนเอง ยังไม่มีการตัดเงินอัตโนมัติ</small></div></aside>
-<dialog id="viewer"><img id="zoom" alt="ภาพขยาย"><div class="end"><strong id="zoomLabel"></strong><div class="viewer-actions"><button type="button" id="chooseProduct">+ ใส่ตะกร้า</button><button id="close" type="button">ปิดภาพ</button></div></div></dialog><script>
+<dialog id="viewer"><img id="zoom" alt="ภาพขยาย"><div class="end"><strong id="zoomLabel"></strong><div class="viewer-actions"><button type="button" id="chooseProduct">+ ใส่ตะกร้า</button><button id="close" type="button">ปิดภาพ</button></div></div></dialog><script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script><script>
 let color='all',pose='all';function apply(){document.querySelectorAll('.product').forEach(el=>el.classList.toggle('hidden',(color!=='all'&&el.dataset.color!==color)||(pose!=='all'&&el.dataset.group!==pose)));document.querySelectorAll('.productgroup').forEach(section=>section.classList.toggle('hidden',!section.querySelector('.product:not(.hidden)')))}document.querySelectorAll('.pill').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.filter){color=b.dataset.filter;document.querySelectorAll('[data-filter]').forEach(x=>{x.classList.toggle('active',x===b);x.setAttribute('aria-pressed',String(x===b))})}if(b.dataset.pose){pose=b.dataset.pose;document.querySelectorAll('[data-pose]').forEach(x=>{x.classList.toggle('active',x===b);x.setAttribute('aria-pressed',String(x===b))})}apply()}));const viewer=document.querySelector('#viewer');document.querySelectorAll('[data-preview]').forEach(el=>el.addEventListener('click',()=>{document.querySelector('#zoom').src=el.dataset.preview;document.querySelector('#zoomLabel').textContent=el.dataset.title;if(viewer.showModal)viewer.showModal();else window.open(el.dataset.preview,'_blank')}));document.querySelector('#close').addEventListener('click',()=>viewer.close());viewer.addEventListener('click',e=>{if(e.target===viewer)viewer.close()});
 </script><script>
 (()=>{'use strict';
@@ -122,7 +122,7 @@ richButton.addEventListener('click',async()=>{
  try{
   richFeedback.textContent='กำลังเตรียมรายการและภาพสินค้า...';
   // The LIFF URL opens the same static website inside LINE, carrying basket in query.
-  if(!window.liff?.isInClient?.() && !orderQuery()){
+  if(!orderQuery() && !(window.liff?.isInClient?.())){
    const data=encodeURIComponent(JSON.stringify(richValue()));
    if(data.length>7500)throw Error('ตะกร้าหรือหมายเหตุยาวเกินไป');
    richFeedback.textContent='กำลังเปิดร้านใน LINE กรุณากดปุ่มส่งรูปอีกครั้งเมื่อเข้าหน้าเว็บใน LINE';
@@ -133,7 +133,7 @@ richButton.addEventListener('click',async()=>{
   if(!window.liff.isApiAvailable('shareTargetPicker'))throw Error('เบราว์เซอร์นี้ยังไม่รองรับ LIFF shareTargetPicker');
   const result=await window.liff.shareTargetPicker(richOrderMessages());
   richFeedback.textContent=result?'ส่งรายการสำเร็จแล้ว โปรดตรวจสอบห้องแชทที่เลือก':'ยังไม่ได้ส่งรายการ กรุณาเลือกห้องแชทแล้วกดยืนยัน';
- }catch(e){console.error('LIFF checkout:',e);richFeedback.textContent='ส่งรูปไม่สำเร็จ: '+(e.message||'กรุณาลองใหม่')+' | ใช้ปุ่ม LINE ข้อความสำรองได้'}
+ }catch(e){console.error('LIFF checkout:',e);richFeedback.textContent='ส่งการ์ดสินค้าไม่สำเร็จ: '+(e.message||'กรุณาลองใหม่')+' — ใช้ปุ่ม LINE ข้อความสำรองได้'}
  finally{richButton.disabled=!cart.length}
 });
 // Initialize LIFF before reading the checkout query or changing browser history.
@@ -147,4 +147,4 @@ if(orderQuery()){
 
 render();
 })();
-</script><script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script></body></html>
+</script></body></html>
